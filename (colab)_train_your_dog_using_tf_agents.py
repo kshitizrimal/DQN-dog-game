@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1DYLqqlyFJyCsVVMOTJnLxMHXbtUeqeIj
 
 # Train your dog using TF-Agents
-![Train your dog using TF-Agents](https://lh4.googleusercontent.com/hbAyCEQ14wTW2jeD38dggaw8ohQlX8pWskgdZjY3PPTq0Ca0dkzBqO6FbmTxcVHF6EhCLRGVRcqIv02MGjuG=w2560-h1396-rw)
 """
 
 !pip install tf-agents
@@ -55,22 +54,22 @@ class ActionResult(Enum):
     VALID_MOVE = 1
     ILLEGAL_MOVE = 2
     FOUND_BONE = 3
-    FOUND_POLICE = 4
+    FOUND_ROBOT = 4
     GAME_COMPLETE = 5
 
 class DogAdventure():
     def __init__(self):
         self._state = np.zeros((36,),dtype=np.int32)
-        self._police_locations = [6,10,14,25,33]
+        self._robot_locations = [6,10,14,25,33]
         self._bone_locations = [5,7,9,16,19,26,30]
-        self._state[self._police_locations] = 2
+        self._state[self._robot_locations] = 2
         self._state[self._bone_locations] = 3
         self._state[0] = 1
         self._game_ended = False
 
     def reset(self):
         self._state = np.zeros((36,),dtype=np.int32)
-        self._state[self._police_locations] = 2
+        self._state[self._robot_locations] = 2
         self._state[self._bone_locations] = 3
         self._state[0] = 1
         self._game_ended = False
@@ -93,7 +92,7 @@ class DogAdventure():
 
         if self._state[next_position] == 2:
             self._game_ended = True
-            return ActionResult.FOUND_POLICE
+            return ActionResult.FOUND_ROBOT
 
         if self._state[next_position] == 3:
             self._state[current_position] = 0
@@ -150,10 +149,10 @@ class DogAdventureEnvironment(py_environment.PyEnvironment):
             return timeStep.termination(self._game.game_state(), 10)
 
         elif response == ActionResult.ILLEGAL_MOVE:
-            return timeStep.termination(self._game.game_state(), -0.1)
+            return timeStep.termination(self._game.game_state(), -0.3)
 
-        elif response == ActionResult.FOUND_POLICE:
-            return timeStep.termination(self._game.game_state(), -0.1)
+        elif response == ActionResult.FOUND_ROBOT:
+            return timeStep.termination(self._game.game_state(), -0.3)
 
         elif response == ActionResult.FOUND_BONE:
             return timeStep.transition(self._game.game_state(), reward=1, discount=1.0)
@@ -178,7 +177,7 @@ q_net = q_network.QNetwork(
 
 train_step = tf.Variable(0)
 update_period = 4
-optimizer = tf.keras.optimizers.RMSprop(lr=2.5e-4, rho=0.95, momentum=0.0, epsilon=0.00001, centered=True)
+optimizer = tf.keras.optimizers.Adam(lr=2.5e-4, epsilon=0.00001)
 
 epsilon_fn = tf.keras.optimizers.schedules.PolynomialDecay(
                 initial_learning_rate=1.0, 
@@ -243,7 +242,7 @@ final_time_step, final_policy_state = init_driver.run()
 
 """### Verify collected trajectories"""
 
-trajectories, buffer_info = replay_buffer.get_next(sample_batch_size=2, num_steps=3)
+trajectories, buffer_info = replay_buffer.get_next(sample_batch_size=2, num_steps=10)
 
 trajectories._fields
 
@@ -252,7 +251,7 @@ time_steps.observation.shape
 
 """### Create Dataset from Replay Buffer"""
 
-dataset = replay_buffer.as_dataset(sample_batch_size=64, num_steps=2, num_parallel_calls=3).prefetch(3)
+dataset = replay_buffer.as_dataset(sample_batch_size=100, num_steps=2, num_parallel_calls=3).prefetch(3)
 
 """### Run it under common function to make it faster"""
 
@@ -345,7 +344,7 @@ def observation_viz(observation):
     if string_obs[5][5] != "1":
       string_obs[5][5] = "❌"
     string_obs = np.where(string_obs=="1","🐕", string_obs) 
-    string_obs = np.where(string_obs=="2","👮", string_obs)
+    string_obs = np.where(string_obs=="2","🤖", string_obs)
     string_obs = np.where(string_obs=="3","🦴", string_obs)
     string_obs = np.where(string_obs=="0","⬚", string_obs)
     observe_2d = pd.DataFrame(string_obs)
